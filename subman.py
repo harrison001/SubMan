@@ -293,7 +293,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         )
         user_collection = db["users"]
         subscription_collection = db["subscriptions"]
-
+        '''
         if event.type == "customer.subscription.created":
             subscription = event.data.object
             user_email = subscription.customer_email
@@ -343,6 +343,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             user = await user_collection.find_one({"email": user_email})
             if user:
                 await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
+         '''       
         return {"message": "Webhook received"}
     except ValueError as e:
         # Invalid payload
