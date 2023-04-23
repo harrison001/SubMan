@@ -294,20 +294,15 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         user_collection = db["users"]
         subscription_collection = db["subscriptions"]
 
-        event_data = json.loads(payload)
         subscription = event.data.object
-
-        try:
-            user_email = subscription["customer_email"]
-        except KeyError:
-            customer_id = subscription["customer"]
-            customer = stripe.Customer.retrieve(customer_id)
-            user_email = customer.email
-            custom_field1 = customer.get("custom_field1")
-            custom_field2 = customer.get("test")
-            print(custom_field1)
-            print(custom_field2)
-            print(user_email)
+        customer_id = subscription["customer"]
+        customer = stripe.Customer.retrieve(customer_id)
+        user_email = customer.email
+        custom_field1 = customer.get("custom_field1")
+        custom_field2 = customer.get("test")
+        print(custom_field1)
+        print(custom_field2)
+        print(user_email)
         try:
             another_email = subscription["metadata"]["another_email"]
         except KeyError:
