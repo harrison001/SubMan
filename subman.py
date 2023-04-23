@@ -129,7 +129,7 @@ async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase
     # Validate platform
     valid_platforms = ["whatsapp_id", "telegram_id", "discord_id", "line_id"]
     if platform not in valid_platforms:
-        return {"is_subscribed": False, "message": "Invalid platform"}
+        return {"is_subscribed": False, "message": "INVALID_PLATFORM"}
 
     # Check if the user exists
     user = await db.users.find_one({"email": email})
@@ -137,7 +137,7 @@ async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase
         # Update the user with the platform_id and platform
         await db.users.update_one({"email": email}, {"$set": {platform: platform_id}})
     else:
-        return {"is_subscribed": False, "message": "User not found"}
+        return {"is_subscribed": False, "message": "USER_NOT_FOUND"}
 
     # Check if the user is subscribed
     if user and user.get("is_subscribed"):
@@ -145,7 +145,7 @@ async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase
         verification_code = send_verification_email(email)
         return {"is_subscribed": True, "verification_code": verification_code}
     else:
-        return {"is_subscribed": False}
+        return {"is_subscribed": False, "message":"EMAIL_NOT_SUBSCTIBED"}
 
 
 #when user inputs correct verification code, the interface will be called.
