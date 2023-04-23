@@ -281,7 +281,7 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
     SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 
 
-#stripe webhook
+
 @app.post("/stripe_webhook")
 async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
     payload = await request.body()
@@ -293,11 +293,27 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         )
         user_collection = db["users"]
         subscription_collection = db["subscriptions"]
-        '''
-        if event.type == "customer.subscription.created":
-            subscription = event.data.object
-            user_email = subscription.customer_email
 
+        event_data = json.loads(payload)
+        subscription = event.data.object
+
+        try:
+            user_email = subscription["customer_email"]
+        except KeyError:
+            customer_id = subscription["customer"]
+            customer = stripe.Customer.retrieve(customer_id)
+            user_email = customer.email
+            custom_field1 = customer.get("custom_field1")
+            custom_field2 = customer.get("test")
+            print(custom_field1)
+            print(custom_field2)
+            print(user_email)
+        try:
+            another_email = subscription["metadata"]["another_email"]
+        except KeyError:
+            another_email = None
+
+        if event.type == "customer.subscription.created":
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
@@ -310,6 +326,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             result = await subscription_collection.insert_one(subscription.dict())
             subscription.id = result.inserted_id
 
+        # Rest of your code...
         elif event.type == "customer.subscription.updated":
             subscription = event.data.object
             user_email = subscription.customer_email
@@ -342,8 +359,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             user_email = invoice.customer_email
             user = await user_collection.find_one({"email": user_email})
             if user:
-                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
-         '''       
+                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})     
         return {"message": "Webhook received"}
     except ValueError as e:
         # Invalid payload
@@ -351,6 +367,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     except stripe.error.SignatureVerificationError as e:
         # Invalid signature
         raise HTTPException(status_code=400, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
