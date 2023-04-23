@@ -286,73 +286,70 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
 async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
-
+    print(payload)
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
+        user_collection = db["users"]
+        subscription_collection = db["subscriptions"]
+
+        if event.type == "customer.subscription.created":
+            subscription = event.data.object
+            user_email = subscription.customer_email
+
+            user = await user_collection.find_one({"email": user_email})
+            if not user:
+                user = User(email=user_email)
+                result = await user_collection.insert_one(user.dict())
+
+            subscription = Subscription(
+                user_email=user_email,
+                subscription_id=subscription.id
+            )
+            result = await subscription_collection.insert_one(subscription.dict())
+            subscription.id = result.inserted_id
+
+        elif event.type == "customer.subscription.updated":
+            subscription = event.data.object
+            user_email = subscription.customer_email
+
+            user = await user_collection.find_one({"email": user_email})
+            if not user:
+                user = User(email=user_email)
+                result = await user_collection.insert_one(user.dict())
+
+            await subscription_collection.update_one(
+                {"subscription_id": subscription.id},
+                {"$set": {"user_email": user_email}}
+            )
+
+        elif event.type == "customer.subscription.deleted":
+            subscription = event.data.object
+            await subscription_collection.delete_one({"subscription_id": subscription.id})
+
+        elif event.type == "invoice.payment_succeeded":
+            invoice = event.data.object
+            user_email = invoice.customer_email
+
+            user = await user_collection.find_one({"email": user_email})
+            if user:
+                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": True}})
+            send_confirmation_email(user_email,subscription.id)
+
+        elif event.type == "invoice.payment_failed":
+            invoice = event.data.object
+            user_email = invoice.customer_email
+            user = await user_collection.find_one({"email": user_email})
+            if user:
+                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
+        return {"message": "Webhook received"}
     except ValueError as e:
         # Invalid payload
         raise HTTPException(status_code=400, detail=str(e))
     except stripe.error.SignatureVerificationError as e:
         # Invalid signature
         raise HTTPException(status_code=400, detail=str(e))
-
-    user_collection = db["users"]
-    subscription_collection = db["subscriptions"]
-
-    if event.type == "customer.subscription.created":
-        subscription = event.data.object
-        user_email = subscription.customer_email
-
-        user = await user_collection.find_one({"email": user_email})
-        if not user:
-            user = User(email=user_email)
-            result = await user_collection.insert_one(user.dict())
-
-        subscription = Subscription(
-            user_email=user_email,
-            subscription_id=subscription.id
-        )
-        result = await subscription_collection.insert_one(subscription.dict())
-        subscription.id = result.inserted_id
-
-    elif event.type == "customer.subscription.updated":
-        subscription = event.data.object
-        user_email = subscription.customer_email
-
-        user = await user_collection.find_one({"email": user_email})
-        if not user:
-            user = User(email=user_email)
-            result = await user_collection.insert_one(user.dict())
-
-        await subscription_collection.update_one(
-            {"subscription_id": subscription.id},
-            {"$set": {"user_email": user_email}}
-        )
-
-    elif event.type == "customer.subscription.deleted":
-        subscription = event.data.object
-        await subscription_collection.delete_one({"subscription_id": subscription.id})
-
-    elif event.type == "invoice.payment_succeeded":
-        invoice = event.data.object
-        user_email = invoice.customer_email
-
-        user = await user_collection.find_one({"email": user_email})
-        if user:
-            await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": True}})
-        send_confirmation_email(user_email,subscription.id)
-
-    elif event.type == "invoice.payment_failed":
-        invoice = event.data.object
-        user_email = invoice.customer_email
-        user = await user_collection.find_one({"email": user_email})
-        if user:
-            await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
-
-    return {"message": "Webhook received"}
-
 
 if __name__ == "__main__":
     import uvicorn
