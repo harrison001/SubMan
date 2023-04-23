@@ -298,9 +298,9 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         customer_id = subscription["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
-        custom_field1 = customer.get("custom_field1")
+        custom_field1 = customer.get("custom_field")
         custom_field2 = customer.get("test")
-        print(custom_field1)
+        print(customer)
         print(custom_field2)
         print(user_email)
         try:
@@ -366,4 +366,4 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
