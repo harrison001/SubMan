@@ -6,3 +6,5 @@ sendgrid
 httpx
 python-dotenv
 loguru
+pydantic[email]
+uvicorn

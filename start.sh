@@ -1,0 +1,1 @@
+nohup python main.py > subman.log 2>&1 &
