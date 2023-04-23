@@ -1,0 +1,8 @@
+fastapi
+pydantic
+motor
+stripe
+sendgrid
+httpx
+python-dotenv
+loguru
