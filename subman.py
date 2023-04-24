@@ -286,7 +286,6 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
 async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
-    print(payload)
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, STRIPE_WEBHOOK_SECRET
@@ -298,19 +297,20 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         customer_id = subscription["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
+        print("user_email:", user_email)
 
-        linked_email_label = "Linked Email: Valid email needed for chatbots"
-        test_label = "test"
+        if event.type == "checkout.session.completed":
+            subscription = event.data.object
+            custom_fields = subscription.get("custom_fields", [])
 
-        linked_email = customer.metadata.get(linked_email_label, "")
-        custom_field = customer.metadata.get(test_label, "")
+            for field in custom_fields:
+                if field.get("key") == "linkedemailvalidemailneededforchatbots":
+                    linked_email = field.get("text", {}).get("value", "")
+                    break
+                    
+            print("Linked Email:", linked_email)
 
-        print("Linked Email:", linked_email)
-        print("Custom Field:", custom_field)
-
-        #if event.type == "checkout.session.completed":
-
-        if event.type == "customer.subscription.created":
+        elif event.type == "customer.subscription.created":
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
@@ -326,7 +326,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         # Rest of your code...
         elif event.type == "customer.subscription.updated":
             subscription = event.data.object
-            user_email = subscription.customer_email
 
             user = await user_collection.find_one({"email": user_email})
             if not user:
@@ -344,7 +343,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
         elif event.type == "invoice.payment_succeeded":
             invoice = event.data.object
-            user_email = invoice.customer_email
 
             user = await user_collection.find_one({"email": user_email})
             if user:
@@ -353,7 +351,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
         elif event.type == "invoice.payment_failed":
             invoice = event.data.object
-            user_email = invoice.customer_email
             user = await user_collection.find_one({"email": user_email})
             if user:
                 await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})     
