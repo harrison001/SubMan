@@ -392,8 +392,10 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         elif event.type == "invoice.payment_succeeded":
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
+            logger.info(f"invoice.payment_succeeded user: {user}")
             if user:
                 subscription = await subscription_collection.find_one({"subscription_id": stripe_subscription.id})
+                ogger.info(f"invoice.payment_succeeded,Subscription: {subscription}")
                 if subscription:
                     # 如果订阅刚刚创建或刚刚从付款失败状态恢复，则发送确认邮件
                     logger.info(f"Subscription status: {subscription['status']}")
