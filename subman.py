@@ -298,6 +298,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
         print("user_email:", user_email)
+        print("event_type:",event.type)
 
         if event.type == "checkout.session.completed":
             custom_fields = subscription.get("custom_fields", [])
