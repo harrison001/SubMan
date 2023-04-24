@@ -396,6 +396,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 subscription = await subscription_collection.find_one({"subscription_id": stripe_subscription.id})
                 if subscription:
                     # 如果订阅刚刚创建或刚刚从付款失败状态恢复，则发送确认邮件
+                    logger.info(f"Subscription status: {subscription['status']}")
                     if subscription["status"] == "incomplete" or subscription["status"] == "past_due":
                         logger.info(f"Sending confirmation email to {user_email}")
                         send_confirmation_email(user_email, stripe_subscription.id)
