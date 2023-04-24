@@ -92,7 +92,7 @@ async def send_webhook(event_type, data):
 def send_confirmation_email(user_email: str, subscription_id: str):
     message = Mail(
         from_email='noreply@mychatgpt.io',
-        to_emails='gzxharrison@gmail.com',
+        to_emails=user_email,
         subject='Email Verification',
         html_content='<strong>Your email address has been verified, please active your bot by Verification code via this email</strong>')
     try:
@@ -332,6 +332,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         else:
             linked_email = ""
 
+        logger.info(f"event.type: {event.type}")
         logger.info(f"user_email: {user_email}")
         logger.info(f"linked_email: {linked_email}")
 
