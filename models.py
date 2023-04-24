@@ -13,6 +13,7 @@ class User(BaseModel):
 
 class Subscription(BaseModel):
     user_email: EmailStr
+    linked_email: EmailStr
     subscription_id: str
 
 class VerificationCode(BaseModel):

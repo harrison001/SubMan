@@ -25,16 +25,22 @@ MONGODB_CONNECTION_STRING = os.environ.get('MONGODB_CONNECTION_STRING')
 MONGODB_DB_NAME = os.environ.get('MONGODB_DB_NAME')
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 async def get_database():
     try:
-        client = AsyncIOMotorClient(MONGODB_URL)
-        database = client[DATABASE_NAME]
+        client = AsyncIOMotorClient(MONGODB_CONNECTION_STRING)
+        database = client[MONGODB_DB_NAME]
+        user_collection = database["users"]
+        await user_collection.create_index("email", unique=True)
         logger.info("Connected to database")
         return database
     except ConnectionFailure:
-        logger.error("Failed to connect to database")
+        logger.error(f"Failed to connect to database:{ConnectionFailure}")
         raise
+
 
 
 print(STRIPE_SECRET_KEY)
@@ -74,8 +80,6 @@ class UserActivationStatus(BaseModel):
     activation_status: Dict[str, bool]
 
 
-async def get_db() -> AsyncIOMotorDatabase:
-    return db
 
 async def send_webhook(event_type, data):
     webhook_url = WEBHOOK_URL
@@ -92,11 +96,11 @@ def send_confirmation_email(user_email: str, subscription_id: str):
         html_content='<strong>Your email address has been verified, please active your bot by Verification code via this email</strong>')
     try:
         response = sendgrid_client.send(message)
-        print(response.status_code)
-        print(response.body)
-        print(response.headers)
+        logger.info(f"response.status_code: {response.status_code}")
+        logger.info(f"response.body): {response.body}")
+        logger.info(f"response.headers: {response.headers}")
     except Exception as e:
-        print(e.message)
+        logger.error(f"Error sending confirmation email to:{to_emails}: {e}")
 
 def generate_verification_code() -> str:
     code = ''.join(random.sample(string.digits, k=6))
@@ -112,16 +116,29 @@ def send_verification_email(email: str) -> str:
     )
     try:
         sendgrid_client.send(message)
-        print(code)
+        logger.info(f"verification code: {code}")
         return code
     except Exception as e:
-        print(e)
+        logger.error(f"Error sending verification email to:{to_emails}: {e}")
         return e
+
+def send_cancellation_email(to_email: str, subscription_id: str):
+    message = Mail(
+        from_email="noreply@mychatgpt.io",
+        to_emails=to_email,
+        subject="Subscription Canceled",
+        html_content=f"<strong>Your subscription with ID {subscription_id} has been canceled.</strong>"
+    )
+    try:
+        response = sendgrid_client.send(message)
+        logger.info(f"Cancellation email sent to {to_email} with status {response.status_code}")
+    except Exception as e:
+        logger.error(f"Error sending cancellation email to {to_email}: {e}")
 
 
 #when user inputs email address, this interface will be called.
 @app.post("/send_verification_code/")
-async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase = Depends(get_database)):
     platform_id = user_input.platform_id
     platform = user_input.platform.lower()
     email = user_input.email
@@ -151,7 +168,7 @@ async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase
 #when user inputs correct verification code, the interface will be called.
 @app.post("/update_user_info")
 async def update_user_info(user_input: UserInput):
-    db = await get_db()
+    db = await get_database()
     user_collection = db["users"]
 
     # 根据提供的电子邮件地址找到用户
@@ -281,86 +298,131 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
     SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 
 
-
 @app.post("/stripe_webhook")
-async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_database)):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
-        user_collection = db["users"]
-        subscription_collection = db["subscriptions"]
+    except ValueError as e:
+        # Invalid payload
+        logger.error(f"Invalid payload: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except stripe.error.SignatureVerificationError as e:
+        # Invalid signature
+        logger.error(f"Invalid signature: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
-        subscription = event.data.object
-        customer_id = subscription["customer"]
+    user_collection = db["users"]
+    subscription_collection = db["subscriptions"]
+    try:
+        stripe_subscription = event.data.object
+        customer_id = stripe_subscription["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
-        print("user_email:", user_email)
-        print("event_type:",event.type)
+
+        if customer.metadata:
+            linked_email = customer.metadata.get("linked_email", "")
+        else:
+            linked_email = ""
+
+        logger.info(f"user_email: {user_email}")
+        logger.info(f"linked_email: {linked_email}")
 
         if event.type == "checkout.session.completed":
-            custom_fields = subscription.get("custom_fields", [])
+            custom_fields = stripe_subscription.get("custom_fields", [])
 
             for field in custom_fields:
                 if field.get("key") == "linkedemailvalidemailneededforchatbots":
                     linked_email = field.get("text", {}).get("value", "")
                     break
 
-            print("Linked Email:", linked_email)
+            logger.info(f"checkout.session.completed:linked_email: {linked_email}")
 
-        '''elif event.type == "customer.subscription.created":
+            stripe.Customer.modify(
+                customer_id,
+                metadata={"linked_email": linked_email}
+            )
+
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
                 result = await user_collection.insert_one(user.dict())
 
-            sub = Subscription(
+            subscription = Subscription(
                 user_email=user_email,
-                subscription_id=subscription.id
+                linked_email=linked_email,
+                subscription_id=stripe_subscription.id
             )
-            result = await subscription_collection.insert_one(sub.dict())
-            subscription.id = result.inserted_id
+            await subscription_collection.insert_one(subscription.dict())
 
-        # Rest of your code...
         elif event.type == "customer.subscription.updated":
-            subscription = event.data.object
-
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
                 result = await user_collection.insert_one(user.dict())
 
             await subscription_collection.update_one(
-                {"subscription_id": subscription.id},
-                {"$set": {"user_email": user_email}}
+                {"subscription_id": stripe_subscription.id},
+                {"$set": {"user_email": user_email, "linked_email": linked_email}}
             )
 
         elif event.type == "customer.subscription.deleted":
-            subscription = event.data.object
-            await subscription_collection.delete_one({"subscription_id": subscription.id})
+            subscription = await subscription_collection.find_one({"subscription_id": stripe_subscription.id})
+            if subscription:
+                linked_email = subscription["linked_email"]
+            else:
+                linked_email = user_email
+
+            if not linked_email:
+                linked_email = user_email
+
+            await subscription_collection.delete_one({"subscription_id": stripe_subscription.id})
+            send_cancellation_email(user_email, stripe_subscription.id)
+            if user_email != linked_email:
+                send_cancellation_email(linked_email, stripe_subscription.id)
 
         elif event.type == "invoice.payment_succeeded":
             invoice = event.data.object
-
             user = await user_collection.find_one({"email": user_email})
             if user:
+                subscription = await subscription_collection.find_one({"subscription_id": stripe_subscription.id})
+                if subscription:
+                    # 如果订阅刚刚创建或刚刚从付款失败状态恢复，则发送确认邮件
+                    if subscription["status"] == "incomplete" or subscription["status"] == "past_due":
+                        send_confirmation_email(user_email, stripe_subscription.id)
+                        if user_email != linked_email:
+                            send_confirmation_email(linked_email, stripe_subscription.id)
+
                 await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": True}})
-            send_confirmation_email(user_email,subscription.id)
 
         elif event.type == "invoice.payment_failed":
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
             if user:
-                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})   '''  
+                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
+                send_payment_failed_email(user_email)  # 发送付款失败提醒
+
         return {"message": "Webhook received"}
-    except ValueError as e:
-        # Invalid payload
-        raise HTTPException(status_code=400, detail=str(e))
-    except stripe.error.SignatureVerificationError as e:
-        # Invalid signature
-        raise HTTPException(status_code=400, detail=str(e))
+    except pymongo.errors.PyMongoError as e:
+        logger.error(f"Database error: {e}")
+        raise HTTPException(status_code=500, detail="Database error")
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe API error: {e}")
+        raise HTTPException(status_code=500, detail="Stripe API error")
+    except sendgrid.SendGridError as e:
+        logger.error(f"SendGrid API error: {e}")
+        raise HTTPException(status_code=500, detail="SendGrid API error")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error")
+
+
 
 
 if __name__ == "__main__":
