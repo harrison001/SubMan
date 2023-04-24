@@ -15,6 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from loguru import logger
 from fastapi import Body
 from typing import Dict
+import logging
 
 load_dotenv()
 
