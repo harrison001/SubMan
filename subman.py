@@ -300,27 +300,26 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         print("user_email:", user_email)
 
         if event.type == "checkout.session.completed":
-            subscription = event.data.object
             custom_fields = subscription.get("custom_fields", [])
 
             for field in custom_fields:
                 if field.get("key") == "linkedemailvalidemailneededforchatbots":
                     linked_email = field.get("text", {}).get("value", "")
                     break
-                    
+
             print("Linked Email:", linked_email)
 
-        elif event.type == "customer.subscription.created":
+        '''elif event.type == "customer.subscription.created":
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
                 result = await user_collection.insert_one(user.dict())
 
-            subscription = Subscription(
+            sub = Subscription(
                 user_email=user_email,
                 subscription_id=subscription.id
             )
-            result = await subscription_collection.insert_one(subscription.dict())
+            result = await subscription_collection.insert_one(sub.dict())
             subscription.id = result.inserted_id
 
         # Rest of your code...
@@ -353,7 +352,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
             if user:
-                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})     
+                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})   '''  
         return {"message": "Webhook received"}
     except ValueError as e:
         # Invalid payload
