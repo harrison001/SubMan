@@ -16,6 +16,7 @@ from loguru import logger
 from fastapi import Body
 from typing import Dict
 import logging
+from fastapi_utils.tasks import repeat_every
 
 load_dotenv()
 
@@ -88,27 +89,46 @@ async def send_webhook(event_type, data):
     async with httpx.AsyncClient() as client:
         await client.post(webhook_url, json=payload)
 
+
+
+@app.on_event("startup")
+@repeat_every(seconds=60 * 60 * 24)  # 每天执行一次
+async def update_subscriptions_status(db: AsyncIOMotorDatabase = Depends(get_database)):
+    subscription_collection = db["subscriptions"]
+    cursor = subscription_collection.find({})
+
+    async for subscription in cursor:
+        subscription_id = subscription["subscription_id"]
+        stripe_subscription = stripe.Subscription.retrieve(subscription_id)
+        stripe_status = stripe_subscription["status"]
+
+        if subscription["status"] != stripe_status:
+            await subscription_collection.update_one(
+                {"subscription_id": subscription_id},
+                {"$set": {"status": stripe_status}}
+            )        
+
 #once customer pays, the activation email need to be sent to remind them to active the bot accordingly. the page need to be designed.
-def send_confirmation_email(user_email: str, subscription_id: str):
+async def send_confirmation_email(user_email: str, subscription_id: str):
     message = Mail(
         from_email='noreply@mychatgpt.io',
         to_emails=user_email,
         subject='Email Verification',
         html_content='<strong>Your email address has been verified, please active your bot by Verification code via this email</strong>')
     try:
-        response = sendgrid_client.send(message)
+        response = await sendgrid_client.send(message)
         logger.info(f"response.status_code: {response.status_code}")
         logger.info(f"response.body): {response.body}")
         logger.info(f"response.headers: {response.headers}")
     except Exception as e:
-        logger.error(f"Error sending confirmation email to:{to_emails}: {e}")
+        logger.error(f"Error sending confirmation email to:{user_email}: {e}")
 
 def generate_verification_code() -> str:
     code = ''.join(random.sample(string.digits, k=6))
     return code
 
-def send_verification_email(email: str) -> str:
-    code = generate_verification_code() # Removed user_id parameter
+async def send_verification_email(email: str) -> str:
+    code = generate_verification_code()
     message = Mail(
         from_email="noreply@mychatgpt.io",
         to_emails=email,
@@ -116,14 +136,14 @@ def send_verification_email(email: str) -> str:
         plain_text_content=f"Your verification code is: {code}",
     )
     try:
-        sendgrid_client.send(message)
+        await sendgrid_client.send(message)
         logger.info(f"verification code: {code}")
         return code
     except Exception as e:
-        logger.error(f"Error sending verification email to:{to_emails}: {e}")
+        logger.error(f"Error sending verification email to:{email}: {e}")
         return e
 
-def send_cancellation_email(to_email: str, subscription_id: str):
+async def send_cancellation_email(to_email: str, subscription_id: str):
     message = Mail(
         from_email="noreply@mychatgpt.io",
         to_emails=to_email,
@@ -131,10 +151,11 @@ def send_cancellation_email(to_email: str, subscription_id: str):
         html_content=f"<strong>Your subscription with ID {subscription_id} has been canceled.</strong>"
     )
     try:
-        response = sendgrid_client.send(message)
+        response = await sendgrid_client.send(message)
         logger.info(f"Cancellation email sent to {to_email} with status {response.status_code}")
     except Exception as e:
         logger.error(f"Error sending cancellation email to {to_email}: {e}")
+
 
 
 #when user inputs email address, this interface will be called.
@@ -296,7 +317,6 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
         raise HTTPException(status_code=400, detail="Invalid platform")
     await user_collection.update_one({"email": email}, {"$set": update_data})
     return {"message": "Email verified and platform ID saved successfully"}
-    SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
 
 
 @app.post("/stripe_webhook")
@@ -322,8 +342,8 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     user_collection = db["users"]
     subscription_collection = db["subscriptions"]
     try:
-        stripe_subscription = event.data.object
-        customer_id = stripe_subscription["customer"]
+        subscription_id = event.data.object["subscription"]
+        customer_id = event.data.object["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
 
@@ -337,7 +357,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         logger.info(f"linked_email: {linked_email}")
 
         if event.type == "checkout.session.completed":
-            custom_fields = stripe_subscription.get("custom_fields", [])
+            custom_fields = event.data.object["custom_fields"]
 
             for field in custom_fields:
                 if field.get("key") == "linkedemailvalidemailneededforchatbots":
@@ -359,23 +379,37 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription = Subscription(
                 user_email=user_email,
                 linked_email=linked_email,
-                subscription_id=stripe_subscription.id
+                subscription_id=subscription_id
+            )
+            await subscription_collection.insert_one(subscription.dict())
+
+        elif event.type == "customer.subscription.created":
+            subscription_status = event.data.object["status"]
+
+            # 更新订阅状态的其他代码...
+            subscription = Subscription(
+                user_email=user_email,
+                linked_email=linked_email,
+                subscription_id=subscription_id,
+                status=subscription_status
             )
             await subscription_collection.insert_one(subscription.dict())
 
         elif event.type == "customer.subscription.updated":
+            subscription_status = event.data.object["status"]
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
                 result = await user_collection.insert_one(user.dict())
 
             await subscription_collection.update_one(
-                {"subscription_id": stripe_subscription.id},
-                {"$set": {"user_email": user_email, "linked_email": linked_email}}
+                {"subscription_id": subscription_id},
+                {"$set": {"user_email": user_email, "linked_email": linked_email, "status": subscription_status}}
             )
 
+
         elif event.type == "customer.subscription.deleted":
-            subscription = await subscription_collection.find_one({"subscription_id": stripe_subscription.id})
+            subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
             if subscription:
                 linked_email = subscription["linked_email"]
             else:
@@ -384,38 +418,46 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             if not linked_email:
                 linked_email = user_email
 
-            await subscription_collection.delete_one({"subscription_id": stripe_subscription.id})
-            send_cancellation_email(user_email, stripe_subscription.id)
+            await subscription_collection.delete_one({"subscription_id": subscription_id})
+            await send_cancellation_email(user_email, subscription_id)
             if user_email != linked_email:
-                send_cancellation_email(linked_email, stripe_subscription.id)
+                await send_cancellation_email(linked_email, subscription_id)
 
         elif event.type == "invoice.payment_succeeded":
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
             logger.info(f"invoice.payment_succeeded user: {user}")
             if user:
-                subscription = await subscription_collection.find_one({"subscription_id": stripe_subscription.id})
-                ogger.info(f"invoice.payment_succeeded,Subscription: {subscription}")
+                subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
+                logger.info(f"invoice.payment_succeeded,Subscription: {subscription}")
                 if subscription:
                     # 如果订阅刚刚创建或刚刚从付款失败状态恢复，则发送确认邮件
                     logger.info(f"Subscription status: {subscription['status']}")
                     if subscription["status"] == "incomplete" or subscription["status"] == "past_due":
+                        await subscription_collection.update_one(
+                            {"subscription_id": subscription_id},
+                            {"$set": {"status": "active"}}
+                        )
                         logger.info(f"Sending confirmation email to {user_email}")
-                        send_confirmation_email(user_email, stripe_subscription.id)
+                        await send_confirmation_email(user_email, subscription_id)
                         logger.info(f"Confirmation email sent to {user_email}")
                         if user_email != linked_email:
                             logger.info(f"Sending confirmation email to {linked_email}")
-                            send_confirmation_email(linked_email, stripe_subscription.id)
+                            await send_confirmation_email(linked_email, subscription_id)
                             logger.info(f"Confirmation email sent to {linked_email}")
 
                 await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": True}})
 
         elif event.type == "invoice.payment_failed":
+            await subscription_collection.update_one(
+                {"subscription_id": subscription_id},
+                {"$set": {"status": "past_due"}}
+            )
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
             if user:
                 await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
-                send_payment_failed_email(user_email)  # 发送付款失败提醒
+                await send_payment_failed_email(user_email, subscription_id)  # 发送付款失败提醒
 
         return {"message": "Webhook received"}
     except pymongo.errors.PyMongoError as e:

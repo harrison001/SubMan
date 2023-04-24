@@ -15,6 +15,8 @@ class Subscription(BaseModel):
     user_email: EmailStr
     linked_email: EmailStr
     subscription_id: str
+    status: str
+
 
 class VerificationCode(BaseModel):
     user_email: EmailStr
