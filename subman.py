@@ -298,15 +298,17 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         customer_id = subscription["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
-        custom_field1 = customer.get("custom_field")
-        custom_field2 = customer.get("test")
-        print(customer)
-        print(custom_field2)
-        print(user_email)
-        try:
-            another_email = subscription["metadata"]["another_email"]
-        except KeyError:
-            another_email = None
+
+        linked_email_label = "Linked Email: Valid email needed for chatbots"
+        test_label = "test"
+
+        linked_email = customer.metadata.get(linked_email_label, "")
+        custom_field = customer.metadata.get(test_label, "")
+
+        print("Linked Email:", linked_email)
+        print("Custom Field:", custom_field)
+
+        #if event.type == "checkout.session.completed":
 
         if event.type == "customer.subscription.created":
             user = await user_collection.find_one({"email": user_email})
