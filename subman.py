@@ -382,9 +382,9 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 metadata={"linked_email": linked_email}
             )
 
-            user = User(email=user_email, subscription_id=subscription_id)
+            user = User(email=linked_email, subscription_id=subscription_id)
             update_result = await user_collection.update_one(
-                {"email": user_email},
+                {"email": linked_email},
                 {"$set": user.dict()},
                 upsert=True
             )
@@ -436,9 +436,9 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 {"$set": {"status": subscription_status}}
             )
                         
-            user = User(email=user_email, subscription_id=subscription_id)
+            user = User(email=linked_email, subscription_id=subscription_id)
             update_result = await user_collection.update_one(
-                {"email": user_email},
+                {"email": linked_email},
                 {"$set": user.dict()},
                 upsert=True
             )
@@ -464,8 +464,8 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         elif event.type == "invoice.payment_succeeded":
             subscription_id = event.data.object["subscription"]
             invoice = event.data.object
-            user = await user_collection.find_one({"email": user_email})
-            logger.info(f"invoice.payment_succeeded user: {user} by {user_email}")
+            user = await user_collection.find_one({"email": linked_email})
+            logger.info(f"invoice.payment_succeeded user: {user} by {linked_email}")
             if user:
                 subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
                 logger.info(f"invoice.payment_succeeded,Subscription: {subscription}")
@@ -485,20 +485,24 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                             await send_confirmation_email(linked_email, subscription_id)
                             logger.info(f"Confirmation email sent to {linked_email}")
 
-                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": True}})
+                await user_collection.update_one({"email": linked_email}, {"$set": {"is_subscribed": True}})
 
         elif event.type == "invoice.payment_failed":
             subscription_id = event.data.object["subscription"]
-            print(subscription_id)
             await subscription_collection.update_one(
                 {"subscription_id": subscription_id},
                 {"$set": {"status": "past_due"}}
             )
             invoice = event.data.object
-            user = await user_collection.find_one({"email": user_email})
+            user = await user_collection.find_one({"email": linked_email})
             if user:
-                await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": False}})
+                await user_collection.update_one({"email": linked_email}, {"$set": {"is_subscribed": False}})
                 await send_payment_failed_email(user_email, subscription_id)  # 发送付款失败提醒
+                if user_email != linked_email:
+                    logger.info(f"Sending send_payment_failed email to {linked_email}")
+                    await send_payment_failed_email(linked_email, subscription_id)
+                    logger.info(f"send_payment_failed email sent to {linked_email}")
+                
 
         return {"message": "Webhook received"}
 
