@@ -393,6 +393,14 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 status=subscription_status
             )
             await subscription_collection.insert_one(subscription.dict())
+            # Send confirmation emails
+            logger.info(f"Sending confirmation email to {user_email}")
+            await send_confirmation_email(user_email, subscription_id)
+            logger.info(f"Confirmation email sent to {user_email}")
+            if user_email != linked_email:
+                logger.info(f"Sending confirmation email to {linked_email}")
+                await send_confirmation_email(linked_email, subscription_id)
+                logger.info(f"Confirmation email sent to {linked_email}")
 
         elif event.type == "customer.subscription.created":
             subscription_status = event.data.object["status"]
