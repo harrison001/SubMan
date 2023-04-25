@@ -19,6 +19,7 @@ from typing import Dict
 import logging
 from fastapi_utils.tasks import repeat_every
 import pymongo
+import asyncio
 
 
 
@@ -116,6 +117,11 @@ async def update_subscriptions_status(db: AsyncIOMotorDatabase = Depends(get_dat
                 {"$set": {"status": stripe_status}}
             )        
 
+
+def generate_verification_code() -> str:
+    code = ''.join(random.sample(string.digits, k=6))
+    return code
+
 #once customer pays, the activation email need to be sent to remind them to active the bot accordingly. the page need to be designed.
 async def send_confirmation_email(user_email: str, subscription_id: str):
     message = Mail(
@@ -124,16 +130,12 @@ async def send_confirmation_email(user_email: str, subscription_id: str):
         subject='Email Verification',
         html_content='<strong>Your email address has been verified, please active your bot by Verification code via this email</strong>')
     try:
-        response = await sendgrid_client.send(message)
+        response = await asyncio.to_thread(sendgrid_client.send, message)
         logger.info(f"response.status_code: {response.status_code}")
         logger.info(f"response.body): {response.body}")
         logger.info(f"response.headers: {response.headers}")
     except Exception as e:
         logger.error(f"Error sending confirmation email to:{user_email}: {e}")
-
-def generate_verification_code() -> str:
-    code = ''.join(random.sample(string.digits, k=6))
-    return code
 
 async def send_verification_email(email: str) -> str:
     code = generate_verification_code()
@@ -144,7 +146,7 @@ async def send_verification_email(email: str) -> str:
         plain_text_content=f"Your verification code is: {code}",
     )
     try:
-        await sendgrid_client.send(message)
+        await asyncio.to_thread(sendgrid_client.send, message)
         logger.info(f"verification code: {code}")
         return code
     except Exception as e:
@@ -159,12 +161,10 @@ async def send_cancellation_email(to_email: str, subscription_id: str):
         html_content=f"<strong>Your subscription with ID {subscription_id} has been canceled.</strong>"
     )
     try:
-        response = await sendgrid_client.send(message)
+        response = await asyncio.to_thread(sendgrid_client.send, message)
         logger.info(f"Cancellation email sent to {to_email} with status {response.status_code}")
     except Exception as e:
         logger.error(f"Error sending cancellation email to {to_email}: {e}")
-
-
 
 #when user inputs email address, this interface will be called.
 @app.post("/send_verification_code/")
