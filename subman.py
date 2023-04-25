@@ -359,7 +359,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         if customer.metadata:
             linked_email = customer.metadata.get("linked_email", "")
         else:
-            linked_email = ""
+            linked_email = user_email
 
         logger.info(f"event.type: {event.type}")
         logger.info(f"user_email: {user_email}")
@@ -369,7 +369,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription_status = event.data.object["status"]
             custom_fields = event.data.object["custom_fields"]
             subscription_id = event.data.object["subscription"]
-            print(subscription_id)
 
             for field in custom_fields:
                 if field.get("key") == "linkedemailvalidemailneededforchatbots":
