@@ -347,12 +347,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     user_collection = db["users"]
     subscription_collection = db["subscriptions"]
     try:
-        try:
-            subscription_id = event.data.object["subscription"]
-        except KeyError:
-        # Handle the error or set a default value for subscription_id
-            subscription_id = None
-            print("subscription_id cannot be found:",event.type)
         customer_id = event.data.object["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
@@ -367,7 +361,9 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         logger.info(f"linked_email: {linked_email}")
 
         if event.type == "checkout.session.completed":
+            subscription_status = event.data.object["status"]
             custom_fields = event.data.object["custom_fields"]
+            subscription_id = event.data.object["subscription"]
 
             for field in custom_fields:
                 if field.get("key") == "linkedemailvalidemailneededforchatbots":
@@ -396,7 +392,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
         elif event.type == "customer.subscription.created":
             subscription_status = event.data.object["status"]
-
+            subscription_id = event.data.object["subscription"]
             # 更新订阅状态的其他代码...
             subscription = Subscription(
                 user_email=user_email,
@@ -408,6 +404,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
         elif event.type == "customer.subscription.updated":
             subscription_status = event.data.object["status"]
+            subscription_id = event.data.object["subscription"]
             user = await user_collection.find_one({"email": user_email})
             if not user:
                 user = User(email=user_email)
@@ -420,6 +417,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
 
         elif event.type == "customer.subscription.deleted":
+            subscription_id = event.data.object["subscription"]
             subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
             if subscription:
                 linked_email = subscription["linked_email"]
@@ -435,6 +433,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 await send_cancellation_email(linked_email, subscription_id)
 
         elif event.type == "invoice.payment_succeeded":
+            subscription_id = event.data.object["subscription"]
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
             logger.info(f"invoice.payment_succeeded user: {user}")
@@ -460,6 +459,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 await user_collection.update_one({"email": user_email}, {"$set": {"is_subscribed": True}})
 
         elif event.type == "invoice.payment_failed":
+            subscription_id = event.data.object["subscription"]
             await subscription_collection.update_one(
                 {"subscription_id": subscription_id},
                 {"$set": {"status": "past_due"}}
