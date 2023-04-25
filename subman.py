@@ -191,7 +191,7 @@ async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase
     # Check if the user is subscribed
     if user and user.get("is_subscribed"):
         # Send 6-digit verification code
-        verification_code = send_verification_email(email)
+        verification_code = await send_verification_email(email)
         return {"is_subscribed": True, "verification_code": verification_code}
     else:
         return {"is_subscribed": False, "message":"EMAIL_NOT_SUBSCTIBED"}
