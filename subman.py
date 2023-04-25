@@ -17,6 +17,7 @@ from fastapi import Body
 from typing import Dict
 import logging
 from fastapi_utils.tasks import repeat_every
+import pymongo
 
 load_dotenv()
 
@@ -343,6 +344,11 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     subscription_collection = db["subscriptions"]
     try:
         subscription_id = event.data.object["subscription"]
+        try:
+            subscription_id = event.data.object["subscription"]
+        except KeyError:
+        # Handle the error or set a default value for subscription_id
+            subscription_id = None
         customer_id = event.data.object["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
