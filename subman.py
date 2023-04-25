@@ -67,6 +67,9 @@ print(SENDGRID_API_KEY)
 
 
 
+stripe_logger = logging.getLogger("stripe")
+stripe_logger.setLevel(logging.WARNING)  # 或者将其更改为 logging.ERROR
+
 
 # 定义相关的数据模型
 class PaymentData(BaseModel):
