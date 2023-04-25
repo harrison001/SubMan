@@ -334,24 +334,24 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature")
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
     except ValueError as e:
-        # Invalid payload
         logger.error(f"Invalid payload: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except stripe.error.SignatureVerificationError as e:
-        # Invalid signature
         logger.error(f"Invalid signature: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-    user_collection = db["users"]
-    subscription_collection = db["subscriptions"]
     try:
+
+        if not event.type in ["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated",
+                              "customer.subscription.deleted", "invoice.payment_succeeded", "invoice.payment_failed"]:
+            return {"message": "Event type not supported"}
+        user_collection = db["users"]
+        subscription_collection = db["subscriptions"]
         customer_id = event.data.object["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
@@ -383,25 +383,25 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 metadata={"linked_email": linked_email}
             )
 
-            user = await user_collection.find_one({"email": user_email})
-            if not user:
-                user = User(email=user_email,subscription_id=subscription_id)
-                result = await user_collection.insert_one(user.dict())
+            user = User(email=user_email, subscription_id=subscription_id)
+            update_result = await user_collection.update_one(
+                {"email": user_email},
+                {"$set": user.dict()},
+                upsert=True
+            )
 
-            subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
-            if not subscription:
-                subscription = Subscription(
-                    user_email=user_email,
-                    linked_email=linked_email,
-                    subscription_id=subscription_id,
-                    status=subscription_status
-                )
-                await subscription_collection.insert_one(subscription.dict())
-            else:
-                await subscription_collection.update_one(
-                    {"subscription_id": subscription_id},
-                    {"$set": {"user_email": user_email, "linked_email": linked_email, "status": subscription_status}}
-                )
+            subscription = Subscription(
+                user_email=user_email,
+                linked_email=linked_email,
+                subscription_id=subscription_id,
+                status=subscription_status
+            )
+            update_result = await subscription_collection.update_one(
+                {"subscription_id": subscription_id},
+                {"$set": subscription.dict()},
+                upsert=True
+            )
+
             # Send confirmation emails
             logger.info(f"Sending confirmation email to {user_email}")
             await send_confirmation_email(user_email, subscription_id)
@@ -415,34 +415,33 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription_status = event.data.object["status"]
             subscription_id = event.data.object["id"]
 
+            subscription = Subscription(
+                user_email=user_email,
+                linked_email=linked_email,
+                subscription_id=subscription_id,
+                status=subscription_status
+            )
+            update_result = await subscription_collection.update_one(
+                {"subscription_id": subscription_id},
+                {"$set": subscription.dict()},
+                upsert=True
+            )
 
-            subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
-            if not subscription:
-                subscription = Subscription(
-                    user_email=user_email,
-                    linked_email=linked_email,
-                    subscription_id=subscription_id,
-                    status=subscription_status
-                )
-                await subscription_collection.insert_one(subscription.dict())
-            else:
-                await subscription_collection.update_one(
-                    {"subscription_id": subscription_id},
-                    {"$set": {"user_email": user_email, "linked_email": linked_email, "status": subscription_status}}
-                )
 
         elif event.type == "customer.subscription.updated":
             subscription_status = event.data.object["status"]
-            subscription_id = event.data.object["subscription"]
-            user = await user_collection.find_one({"email": user_email})
-            print(subscription_id)
-            if not user:
-                user = User(email=user_email,subscription_id=subscription_id)
-                result = await user_collection.insert_one(user.dict())
+            subscription_id = event.data.object["id"]
 
             await subscription_collection.update_one(
                 {"subscription_id": subscription_id},
-                {"$set": {"user_email": user_email, "linked_email": linked_email, "status": subscription_status}}
+                {"$set": {"status": subscription_status}}
+            )
+                        
+            user = User(email=user_email, subscription_id=subscription_id)
+            update_result = await user_collection.update_one(
+                {"email": user_email},
+                {"$set": user.dict()},
+                upsert=True
             )
 
 
@@ -503,6 +502,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 await send_payment_failed_email(user_email, subscription_id)  # 发送付款失败提醒
 
         return {"message": "Webhook received"}
+
     except pymongo.errors.PyMongoError as e:
         logger.error(f"Database error: {e}")
         raise HTTPException(status_code=500, detail="Database error")
@@ -515,9 +515,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail="Unexpected error")
-
-
-
 
 if __name__ == "__main__":
     import uvicorn
