@@ -8,7 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import stripe
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-from sendgrid.exceptions import SendGridError
+from sendgrid.helpers.mail import SendGridException
 import httpx
 from models import User, Subscription, VerificationCode
 from dotenv import load_dotenv
@@ -477,7 +477,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     except stripe.error.StripeError as e:
         logger.error(f"Stripe API error: {e}")
         raise HTTPException(status_code=500, detail="Stripe API error")
-    except SendGridError as e:
+    except SendGridException as e:
         logger.error(f"SendGrid API error: {e}")
         raise HTTPException(status_code=500, detail="SendGrid API error")
     except Exception as e:
