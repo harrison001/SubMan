@@ -18,6 +18,8 @@ from typing import Dict
 import logging
 from fastapi_utils.tasks import repeat_every
 import pymongo
+import sendgrid
+
 
 load_dotenv()
 
@@ -385,7 +387,8 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription = Subscription(
                 user_email=user_email,
                 linked_email=linked_email,
-                subscription_id=subscription_id
+                subscription_id=subscription_id,
+                status=subscription_status
             )
             await subscription_collection.insert_one(subscription.dict())
 
