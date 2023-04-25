@@ -41,8 +41,10 @@ async def get_database():
     try:
         client = AsyncIOMotorClient(MONGODB_CONNECTION_STRING)
         database = client[MONGODB_DB_NAME]
+        subscription_collection = database["subscriptions"]
         user_collection = database["users"]
         await user_collection.create_index("email", unique=True)
+        await subscription_collection.create_index("subscription_id", unique=True)
         logger.info("Connected to database")
         return database
     except ConnectionFailure:
@@ -383,16 +385,23 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
             user = await user_collection.find_one({"email": user_email})
             if not user:
-                user = User(email=user_email)
+                user = User(email=user_email,subscription_id=subscription_id)
                 result = await user_collection.insert_one(user.dict())
 
-            subscription = Subscription(
-                user_email=user_email,
-                linked_email=linked_email,
-                subscription_id=subscription_id,
-                status=subscription_status
-            )
-            await subscription_collection.insert_one(subscription.dict())
+            subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
+            if not subscription:
+                subscription = Subscription(
+                    user_email=user_email,
+                    linked_email=linked_email,
+                    subscription_id=subscription_id,
+                    status=subscription_status
+                )
+                await subscription_collection.insert_one(subscription.dict())
+            else:
+                await subscription_collection.update_one(
+                    {"subscription_id": subscription_id},
+                    {"$set": {"user_email": user_email, "linked_email": linked_email, "status": subscription_status}}
+                )
             # Send confirmation emails
             logger.info(f"Sending confirmation email to {user_email}")
             await send_confirmation_email(user_email, subscription_id)
@@ -406,14 +415,21 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription_status = event.data.object["status"]
             subscription_id = event.data.object["id"]
 
-            # 更新订阅状态的其他代码...
-            subscription = Subscription(
-                user_email=user_email,
-                linked_email=linked_email,
-                subscription_id=subscription_id,
-                status=subscription_status
-            )
-            await subscription_collection.insert_one(subscription.dict())
+
+            subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
+            if not subscription:
+                subscription = Subscription(
+                    user_email=user_email,
+                    linked_email=linked_email,
+                    subscription_id=subscription_id,
+                    status=subscription_status
+                )
+                await subscription_collection.insert_one(subscription.dict())
+            else:
+                await subscription_collection.update_one(
+                    {"subscription_id": subscription_id},
+                    {"$set": {"user_email": user_email, "linked_email": linked_email, "status": subscription_status}}
+                )
 
         elif event.type == "customer.subscription.updated":
             subscription_status = event.data.object["status"]
@@ -451,7 +467,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription_id = event.data.object["subscription"]
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
-            print(subscription_id)
             logger.info(f"invoice.payment_succeeded user: {user}")
             if user:
                 subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
