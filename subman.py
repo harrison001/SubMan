@@ -425,7 +425,12 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 {"$set": subscription.dict()},
                 upsert=True
             )
-
+            user = User(email=linked_email, subscription_id=subscription_id)
+            update_result = await user_collection.update_one(
+                {"email": linked_email},
+                {"$set": user.dict()},
+                upsert=True
+            )
 
         elif event.type == "customer.subscription.updated":
             subscription_status = event.data.object["status"]
