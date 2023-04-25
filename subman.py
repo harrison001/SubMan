@@ -437,7 +437,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             user = await user_collection.find_one({"email": user_email})
             print(subscription_id)
             if not user:
-                user = User(email=user_email)
+                user = User(email=user_email,subscription_id=subscription_id)
                 result = await user_collection.insert_one(user.dict())
 
             await subscription_collection.update_one(
@@ -467,7 +467,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             subscription_id = event.data.object["subscription"]
             invoice = event.data.object
             user = await user_collection.find_one({"email": user_email})
-            logger.info(f"invoice.payment_succeeded user: {user}")
+            logger.info(f"invoice.payment_succeeded user: {user} by {user_email}")
             if user:
                 subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
                 logger.info(f"invoice.payment_succeeded,Subscription: {subscription}")
