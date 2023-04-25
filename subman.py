@@ -445,7 +445,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
 
         elif event.type == "customer.subscription.deleted":
-            subscription_id = event.data.object["subscription"]
+            subscription_id = event.data.object["id"]
             subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
             print(subscription_id)
             if subscription:
@@ -460,6 +460,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             await send_cancellation_email(user_email, subscription_id)
             if user_email != linked_email:
                 await send_cancellation_email(linked_email, subscription_id)
+            await user_collection.update_one({"email": linked_email}, {"$set": {"is_subscribed": False}})
 
         elif event.type == "invoice.payment_succeeded":
             subscription_id = event.data.object["subscription"]
