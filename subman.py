@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import stripe
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from sendgrid.exceptions import SendGridError
 import httpx
 from models import User, Subscription, VerificationCode
 from dotenv import load_dotenv
@@ -18,7 +19,8 @@ from typing import Dict
 import logging
 from fastapi_utils.tasks import repeat_every
 import pymongo
-import sendgrid
+
+
 
 
 load_dotenv()
@@ -345,12 +347,12 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     user_collection = db["users"]
     subscription_collection = db["subscriptions"]
     try:
-        subscription_id = event.data.object["subscription"]
         try:
             subscription_id = event.data.object["subscription"]
         except KeyError:
         # Handle the error or set a default value for subscription_id
             subscription_id = None
+            print("subscription_id cannot be found:",event.type)
         customer_id = event.data.object["customer"]
         customer = stripe.Customer.retrieve(customer_id)
         user_email = customer.email
@@ -475,7 +477,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
     except stripe.error.StripeError as e:
         logger.error(f"Stripe API error: {e}")
         raise HTTPException(status_code=500, detail="Stripe API error")
-    except sendgrid.SendGridError as e:
+    except SendGridError as e:
         logger.error(f"SendGrid API error: {e}")
         raise HTTPException(status_code=500, detail="SendGrid API error")
     except Exception as e:
