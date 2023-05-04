@@ -412,7 +412,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 metadata={"linked_email": linked_email}
             )
 
-            webapp_access_token = str（uuid.uuid4()）
+            webapp_access_token = str(uuid.uuid4())
 
             user = User(email=linked_email, subscription_id=subscription_id,webapp_token_id =webapp_access_token, is_subscribed = True)
             update_result = await user_collection.update_one(
