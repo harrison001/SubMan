@@ -270,25 +270,22 @@ async def update_user_info(user_input: UserInput):
 class SubscriptionRequest(BaseModel):
     userEmail: str
     membershipType: str
-    membershipPrice: int
 
 @app.post("/subscribe")
 async def subscribe(subscription_request: SubscriptionRequest):
     try:
+        # 获取产品和价格ID
+        price_id = get_price_id(subscription_request.membershipType)
+        mode = get_mode(subscription_request.membershipType)
+
         # 创建一个新的支付会话
         session = stripe.checkout.Session.create(
-            payment_method_types=["alipay", "card"],  # 支付宝、微信和信用卡/银行卡支付
+            payment_method_types=["alipay", "card"],  # 支付宝和信用卡支付
             line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {
-                        "name": subscription_request.membershipType,
-                    },
-                    "unit_amount": subscription_request.membershipPrice * 100,  # Stripe 使用的是最小货币单位，例如美分
-                },
+                "price": price_id,  # 使用价格ID
                 "quantity": 1,
             }],
-            mode="subscription",  # 订阅模式
+            mode=mode,  # 根据产品类型设置模式
             success_url="https://mychatgpt.io/payment_succeeded.html",  # 替换为支付成功后的跳转 URL
             cancel_url="https://mychatgpt.io/payment_failed.html",  # 替换为支付取消后的跳转 URL
             metadata={"linked_email": subscription_request.userEmail}  # 在 metadata 中添加 email
@@ -299,6 +296,23 @@ async def subscribe(subscription_request: SubscriptionRequest):
 
     except Exception as e:
         return {"error": str(e)}
+
+def get_price_id(membership_type):
+    # 这个函数应该根据会员类型返回对应的价格ID
+    # 这里只是一个例子，你需要根据你的实际情况修改
+    if membership_type == "钻石卡":
+        return "price_1Jb9NECDK5qyIoJAD25q4S2k"
+    elif membership_type == "次卡会员":
+        return "price_1Jb9NECDK5qyIoJAD25q4S2k"
+    # ...
+
+def get_mode(membership_type):
+    # 这个函数应该根据会员类型返回对应的支付模式
+    # 这里只是一个例子，你需要根据你的实际情况修改
+    if membership_type == "次卡会员":
+        return "payment"
+    else:
+        return "subscription"
 
 
 
