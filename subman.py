@@ -20,7 +20,7 @@ import logging
 from fastapi_utils.tasks import repeat_every
 import pymongo
 import asyncio
-
+import uuid
 
 
 
@@ -90,6 +90,8 @@ class UserActivationStatus(BaseModel):
     telegram_id: Optional[str]
     discord_id: Optional[str]
     line_id: Optional[str]
+    webapp_token_id:Optional[str]
+    price: Optional[float]
     activation_status: Dict[str, bool]
 
 
@@ -120,12 +122,41 @@ async def update_subscriptions_status(db: AsyncIOMotorDatabase = Depends(get_dat
             )        
 
 
+
+# 接口: 根据邮箱查询webapp_token_id并调用发送确认邮件函数
+@app.get("/webapp-token")
+async def get_webapp_token(email: EmailStr, db: AsyncIOMotorDatabase = Depends(get_database)):
+    user = await db.users.find_one({"email": email})
+    if not user:
+         return {"isSuccessful":False,"webapp_token_id": user.webapp_token_id,"msg":"User not found"}
+
+    # 调用发送确认邮件函数
+    await send_confirmation_email(user.email, user.subscription_id, user.webapp_token_id)
+    return {"isSuccessful":True,"webapp_token_id": user.webapp_token_id}
+
+# 接口: 验证token的有效性
+@app.post("/validate-token")
+async def validate_token(webapp_token_id: str):
+    user = await db.users.find_one({"webapp_token_id": webapp_token_id})
+    if not user:
+        return {"isSuccessful":False,"msg":"Token not found"}
+
+    # 根据会员价格返回会员类型
+    membership_map = {
+        8: "次卡会员",
+        10: "普通包月",
+        25: "黄金卡",
+        50: "白金卡",
+        100: "钻石卡",
+    }
+    return {"isSuccessful":True,"price": user.price}
+
 def generate_verification_code() -> str:
     code = ''.join(random.sample(string.digits, k=6))
     return code
 
 #once customer pays, the activation email need to be sent to remind them to active the bot accordingly. the page need to be designed.
-async def send_confirmation_email(user_email: str, subscription_id: str):
+async def send_confirmation_email(user_email: str, subscription_id: str, webapp_token_id: str = ""):
     message = Mail(
         from_email='noreply@mychatgpt.io',
         to_emails=user_email,
@@ -234,41 +265,40 @@ async def update_user_info(user_input: UserInput):
     return user_activation_status
 
 
+
+
+class SubscriptionRequest(BaseModel):
+    userEmail: str
+    membershipType: str
+    membershipPrice: int
+
 @app.post("/subscribe")
-async def subscribe(user_id: int, token: str, plan: str, db=Depends(get_database)):
-    user_collection = await get_user_collection()
-    user = await user_collection.find_one({"id": user_id})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # 为不同的订阅方案设置价格
-    price_map = {
-        "monthly": 999,
-        "quarterly": 2499,
-        "yearly": 8999
-    }
-
-    # 检查订阅方案是否有效
-    if plan not in price_map:
-        raise HTTPException(status_code=400, detail="Invalid subscription plan")
-
+async def subscribe(subscription_request: SubscriptionRequest):
     try:
-        # 使用Stripe创建Charge对象
-        charge = stripe.Charge.create(
-            amount=price_map[plan], # 订阅价格（以分为单位）
-            currency="usd",
-            source=token, # 支付令牌
-            description=f"Subscription for {plan} plan",
+        # 创建一个新的支付会话
+        session = stripe.checkout.Session.create(
+            payment_method_types=["alipay", "wechat", "card"],  # 支付宝、微信和信用卡/银行卡支付
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": subscription_request.membershipType,
+                    },
+                    "unit_amount": subscription_request.membershipPrice * 100,  # Stripe 使用的是最小货币单位，例如美分
+                },
+                "quantity": 1,
+            }],
+            mode="subscription",  # 订阅模式
+            success_url="https://mychatgpt.io/payment_succeeded.html",  # 替换为支付成功后的跳转 URL
+            cancel_url="https://mychatgpt.io/payment_failed.html",  # 替换为支付取消后的跳转 URL
         )
 
-        # 如果付款成功，将用户标记为订阅用户
-        if charge.status == "succeeded":
-            await user_collection.update_one({"id": user_id}, {"$set": {"subscription": True}})
-            return {"message": "Subscription successful"}
+        # 返回会话ID
+        return {"sessionId": session.id}
 
-    except stripe.error.CardError as e:
-        # 如果付款失败，返回错误信息
-        raise HTTPException(status_code=400, detail=e.user_message)
+    except Exception as e:
+        return {"error": str(e)}
+
 
 @app.post("/cancel_subscription")
 async def cancel_subscription(user_id: int, db=Depends(get_database)):
@@ -382,7 +412,9 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 metadata={"linked_email": linked_email}
             )
 
-            user = User(email=linked_email, subscription_id=subscription_id,is_subscribed = True)
+            webapp_access_token = str（uuid.uuid4()）
+
+            user = User(email=linked_email, subscription_id=subscription_id,webapp_token_id =webapp_access_token, is_subscribed = True)
             update_result = await user_collection.update_one(
                 {"email": linked_email},
                 {"$set": user.dict()},
@@ -403,11 +435,11 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
             # Send confirmation emails
             logger.info(f"Sending confirmation email to {user_email}")
-            await send_confirmation_email(user_email, subscription_id)
+            await send_confirmation_email(user_email, subscription_id, webapp_access_token)
             logger.info(f"Confirmation email sent to {user_email}")
             if user_email != linked_email:
                 logger.info(f"Sending confirmation email to {linked_email}")
-                await send_confirmation_email(linked_email, subscription_id)
+                await send_confirmation_email(linked_email, subscription_id, webapp_access_token)
                 logger.info(f"Confirmation email sent to {linked_email}")
 
         elif event.type == "customer.subscription.created":

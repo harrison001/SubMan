@@ -10,6 +10,8 @@ class User(BaseModel):
     telegram_id: Optional[str] = None
     discord_id: Optional[str] = None
     line_id: Optional[str] = None
+    price: Optional[float] = None
+    webapp_token_id: Optional[str] = None
 
 class Subscription(BaseModel):
     user_email: EmailStr
