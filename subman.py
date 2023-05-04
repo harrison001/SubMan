@@ -277,7 +277,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
     try:
         # 创建一个新的支付会话
         session = stripe.checkout.Session.create(
-            payment_method_types=["alipay", "wechat", "card"],  # 支付宝、微信和信用卡/银行卡支付
+            payment_method_types=["alipay", "card"],  # 支付宝、微信和信用卡/银行卡支付
             line_items=[{
                 "price_data": {
                     "currency": "usd",
