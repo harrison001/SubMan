@@ -468,7 +468,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 upsert=True
             )
 
-            '''sending email is not necessary.
+            sending email is not necessary.
             # Send confirmation emails
             logger.info(f"Sending confirmation email to {user_email}")
             await send_confirmation_email(user_email, subscription_id, webapp_access_token)
@@ -477,7 +477,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 logger.info(f"Sending confirmation email to {linked_email}")
                 await send_confirmation_email(linked_email, subscription_id, webapp_access_token)
                 logger.info(f"Confirmation email sent to {linked_email}")
-            '''
+            
 
         elif event.type == "customer.subscription.created":
             subscription_status = event.data.object["status"]
@@ -498,7 +498,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             update_result = await user_collection.update_one(
                 {"email": linked_email},
                 {"$set": user.dict()},
-                upsert=True
+                upsert=False
             )
 
         elif event.type == "customer.subscription.updated":
@@ -514,7 +514,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             update_result = await user_collection.update_one(
                 {"email": linked_email},
                 {"$set": user.dict()},
-                upsert=True
+                upsert=False
             )
 
 
@@ -552,6 +552,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                             {"subscription_id": subscription_id},
                             {"$set": {"status": "active"}}
                         )
+                        '''
                         logger.info(f"Sending confirmation email to {user_email}")
                         await send_confirmation_email(user_email, subscription_id)
                         logger.info(f"Confirmation email sent to {user_email}")
@@ -559,7 +560,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                             logger.info(f"Sending confirmation email to {linked_email}")
                             await send_confirmation_email(linked_email, subscription_id)
                             logger.info(f"Confirmation email sent to {linked_email}")
-
+                        '''
                 await user_collection.update_one({"email": linked_email}, {"$set": {"is_subscribed": True}})
 
         elif event.type == "invoice.payment_failed":
