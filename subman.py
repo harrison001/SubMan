@@ -144,7 +144,7 @@ async def validate_token(webapp_token_id: str):
     # 根据会员价格返回会员类型
     membership_map = {
         8: "次卡会员",
-        10: "普通包月",
+        10: "普通月卡",
         25: "黄金卡",
         50: "白金卡",
         100: "钻石卡",
@@ -278,9 +278,15 @@ async def subscribe(subscription_request: SubscriptionRequest):
         price_id = get_price_id(subscription_request.membershipType)
         mode = get_mode(subscription_request.membershipType)
 
+        # 根据模式设置支付方式
+        if mode == "payment":
+            payment_method_types = ["alipay", "card"]
+        elif mode == "subscription":
+            payment_method_types = ["card", "apple_pay", "google_pay"]
+
         # 创建一个新的支付会话
         session = stripe.checkout.Session.create(
-            payment_method_types=["alipay", "card"],  # 支付宝和信用卡支付
+            payment_method_types=payment_method_types,
             line_items=[{
                 "price": price_id,  # 使用价格ID
                 "quantity": 1,
