@@ -161,7 +161,7 @@ async def send_confirmation_email(user_email: str, subscription_id: str, webapp_
         from_email='noreply@mychatgpt.io',
         to_emails=user_email,
         subject='Email Verification',
-        html_content='<strong>Your email address has been verified, please active your bot by Verification code via this email</strong>')
+        html_content='<strong>Your email address has been verified,web token:'+ str+',please active your bot by Verification code via this email</strong>')
     try:
         response = await asyncio.to_thread(sendgrid_client.send, message)
         logger.info(f"response.status_code: {response.status_code}")
