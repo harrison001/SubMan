@@ -295,6 +295,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
             success_url="https://mychatgpt.io/payment_succeeded.html",  # 替换为支付成功后的跳转 URL
             cancel_url="https://mychatgpt.io/payment_failed.html",  # 替换为支付取消后的跳转 URL
             metadata={"linked_email": subscription_request.userEmail}  # 在 metadata 中添加 email
+            customer_email=subscription_request.userEmail  # 自动填写用户邮箱
         )
 
         # 返回会话ID
