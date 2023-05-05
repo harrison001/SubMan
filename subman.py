@@ -135,10 +135,14 @@ async def get_webapp_token(email: EmailStr, db: AsyncIOMotorDatabase = Depends(g
     await send_confirmation_email(user.get("email"), user.get("subscription_id"), user.get("webapp_token_id"))
     return {"isSuccessful":True,"webapp_token_id": user.get("webapp_token_id")}
 
+
+class Token(BaseModel):
+    webapp_token_id: str
+
 # 接口: 验证token的有效性
 @app.post("/validate-token")
-async def validate_token(webapp_token_id: str):
-    user = await db.users.find_one({"webapp_token_id": webapp_token_id})
+async def validate_token(token: Token):
+    user = await db.users.find_one({"webapp_token_id": token.webapp_token_id})
     if not user:
         return {"isSuccessful":False,"msg":"Token not found"}
 
