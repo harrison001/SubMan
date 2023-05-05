@@ -127,7 +127,7 @@ async def update_subscriptions_status(db: AsyncIOMotorDatabase = Depends(get_dat
 @app.get("/webapp-token")
 async def get_webapp_token(email: EmailStr, db: AsyncIOMotorDatabase = Depends(get_database)):
     user = await db.users.find_one({"email": email})
-    print(user)
+    #print(user)
     if not user:
          return {"isSuccessful":False,"webapp_token_id":"","msg":"User not found"}
 
@@ -462,7 +462,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             webapp_access_token = str(uuid.uuid4())
 
             user = User(email=linked_email, subscription_id=subscription_id,webapp_token_id=webapp_access_token, is_subscribed = True)
-            print(user)
+            #print(user)
             update_result = await user_collection.update_one(
                 {"email": linked_email},
                 {"$set": user.dict()},
@@ -531,7 +531,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         elif event.type == "customer.subscription.deleted":
             subscription_id = event.data.object["id"]
             subscription = await subscription_collection.find_one({"subscription_id": subscription_id})
-            print(subscription_id)
+            #print(subscription_id)
             if subscription:
                 linked_email = subscription["linked_email"]
             else:
