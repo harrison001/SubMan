@@ -127,8 +127,9 @@ async def update_subscriptions_status(db: AsyncIOMotorDatabase = Depends(get_dat
 @app.get("/webapp-token")
 async def get_webapp_token(email: EmailStr, db: AsyncIOMotorDatabase = Depends(get_database)):
     user = await db.users.find_one({"email": email})
+    print(user)
     if not user:
-         return {"isSuccessful":False,"webapp_token_id": user.webapp_token_id,"msg":"User not found"}
+         return {"isSuccessful":False,"webapp_token_id":"","msg":"User not found"}
 
     # 调用发送确认邮件函数
     await send_confirmation_email(user.email, user.subscription_id, user.webapp_token_id)
