@@ -463,11 +463,22 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 metadata={"linked_email": linked_email}
             )
 
-            session = event.data.object
-            line_items = session.line_items.data
+            session = event["data"]["object"]
 
-            # Get the priceId of the first item in the line_items array
-            price_id = line_items[0].price.id
+            # Retrieve the session with line_items expanded
+            try:
+                session_with_line_items = stripe.checkout.Session.retrieve(
+                    session["id"], expand=["line_items"]
+                )
+                line_items = session_with_line_items.line_items.data
+
+                # Get the priceId of the first item in the line_items array
+                price_id = line_items[0].price.id
+                print(f"Price ID: {price_id}")
+
+            except StripeError as e:
+                print(f"Stripe error: {e}")
+                price_id = ""
             webapp_access_token = str(uuid.uuid4())
 
             user = User(email=linked_email, subscription_id=subscription_id, webapp_token_id=webapp_access_token, price_id = price_id, is_subscribed = True)
