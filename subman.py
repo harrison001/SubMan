@@ -158,7 +158,7 @@ def generate_verification_code() -> str:
 #once customer pays, the activation email need to be sent to remind them to active the bot accordingly. the page need to be designed.
 async def send_confirmation_email(user_email: str, subscription_id: str, webapp_token_id: str = ""):
     emailContent =""
-    if str:
+    if webapp_token_id:
         emailContent = "<strong>Your email address has been verified,web token:" + webapp_token_id + ",please active your bot by Verification code via this email</strong>"
     else:
         emailContent = "<strong>Your email address has been verified,please active your bot by Verification code via this email</strong>"
@@ -467,6 +467,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 upsert=True
             )
 
+            '''sending email is not necessary.
             # Send confirmation emails
             logger.info(f"Sending confirmation email to {user_email}")
             await send_confirmation_email(user_email, subscription_id, webapp_access_token)
@@ -475,6 +476,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 logger.info(f"Sending confirmation email to {linked_email}")
                 await send_confirmation_email(linked_email, subscription_id, webapp_access_token)
                 logger.info(f"Confirmation email sent to {linked_email}")
+            '''
 
         elif event.type == "customer.subscription.created":
             subscription_status = event.data.object["status"]
