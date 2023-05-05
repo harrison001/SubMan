@@ -133,7 +133,7 @@ async def get_webapp_token(email: EmailStr, db: AsyncIOMotorDatabase = Depends(g
 
     # 调用发送确认邮件函数
     await send_confirmation_email(user.get("email"), user.get("subscription_id"), user.get("webapp_token_id"))
-    return {"isSuccessful":True,"webapp_token_id": user.webapp_token_id}
+    return {"isSuccessful":True,"webapp_token_id": user.get("webapp_token_id")}
 
 # 接口: 验证token的有效性
 @app.post("/validate-token")
