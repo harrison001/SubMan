@@ -467,8 +467,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 {"$set": subscription.dict()},
                 upsert=True
             )
-
-            sending email is not necessary.
+            
             # Send confirmation emails
             logger.info(f"Sending confirmation email to {user_email}")
             await send_confirmation_email(user_email, subscription_id, webapp_access_token)
