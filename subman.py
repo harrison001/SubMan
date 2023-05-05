@@ -150,7 +150,7 @@ async def validate_token(webapp_token_id: str):
         50: "白金卡",
         100: "钻石卡",
     }
-    return {"isSuccessful":True,"price": user.price}
+    return {"isSuccessful":True,"price": user.get("price")}
 
 def generate_verification_code() -> str:
     code = ''.join(random.sample(string.digits, k=6))
@@ -310,6 +310,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
 def get_price_id(membership_type):
     # 这个函数应该根据会员类型返回对应的价格ID
     # 这里只是一个例子，你需要根据你的实际情况修改
+    '''
     if membership_type == "普通月卡":
         return "price_1N4CCrCGuAz36NVRinJREU1d"
     elif membership_type == "黄金卡":
@@ -320,6 +321,18 @@ def get_price_id(membership_type):
         return "price_1N4C5CCGuAz36NVRsklsrsMp"
     elif membership_type == "次卡会员":
         return "price_1N4C1qCGuAz36NVRVrFC0mho"
+    '''
+    #test 
+    if membership_type == "普通月卡":
+        return "price_1N4JJWCGuAz36NVRYsnldFtj"
+    elif membership_type == "黄金卡":
+        return "price_1N4JJECGuAz36NVRhuwKCYXi"
+    elif membership_type == "白金卡":
+        return "price_1N4JJiCGuAz36NVRxVQJjdro"
+    elif membership_type == "钻石卡":
+        return "price_1N4JKkCGuAz36NVRIxFfO86n"
+    elif membership_type == "次卡会员":
+        return "price_1N4JKYCGuAz36NVRc0TTW4j9"
     # ...
 
 def get_mode(membership_type):
