@@ -210,7 +210,7 @@ async def send_verification_code(user_input: UserInput, db: AsyncIOMotorDatabase
     email = user_input.email
     
     # Validate platform
-    valid_platforms = ["whatsapp_id", "telegram_id", "discord_id", "line_id"]
+    valid_platforms = ["whatsapp_id", "telegram_id", "discord_id", "line_id","webapp_token_id"]
     if platform not in valid_platforms:
         return {"is_subscribed": False, "message": "INVALID_PLATFORM"}
 
@@ -398,6 +398,8 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
         update_data["discord_id"] = platform_id
     elif platform.lower() == "line":
         update_data["line_id"] = platform_id
+    elif platform.lower() == "webapp_token_id":
+        update_data["line_id"] = platform_id
     else:
         raise HTTPException(status_code=400, detail="Invalid platform")
     await user_collection.update_one({"email": email}, {"$set": update_data})
@@ -523,7 +525,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             user = User(email=linked_email, subscription_id=subscription_id)
             update_result = await user_collection.update_one(
                 {"email": linked_email},
-                {"$set": user.dict()},
+                {"$set": {"subscription_id": subscription_id}},
                 upsert=False
             )
 
