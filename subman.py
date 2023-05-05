@@ -301,7 +301,7 @@ def get_price_id(membership_type):
     # 这个函数应该根据会员类型返回对应的价格ID
     # 这里只是一个例子，你需要根据你的实际情况修改
     if membership_type == "普通月卡":
-        return "price_1MfhW7CGuAz36NVRuHylzTa0"
+        return "price_1N4CCrCGuAz36NVRinJREU1d"
     elif membership_type == "黄金卡":
         return "price_1N4C4vCGuAz36NVRTfGjO1DA"
     elif membership_type == "白金卡":
