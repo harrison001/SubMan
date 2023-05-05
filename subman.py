@@ -280,7 +280,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
 
         # 根据模式设置支付方式
         if mode == "payment":
-            payment_method_types = ["alipay", "card","wechat_pay"]
+            payment_method_types = ["alipay", "card"]
         elif mode == "subscription":
             payment_method_types = ["card"]
 
