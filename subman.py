@@ -91,7 +91,7 @@ class UserActivationStatus(BaseModel):
     discord_id: Optional[str]
     line_id: Optional[str]
     webapp_token_id:Optional[str]
-    price: Optional[float]
+    price_id: Optional[str]
     activation_status: Dict[str, bool]
 
 
@@ -150,7 +150,7 @@ async def validate_token(webapp_token_id: str):
         50: "白金卡",
         100: "钻石卡",
     }
-    return {"isSuccessful":True,"price": user.get("price")}
+    return {"isSuccessful":True,"price_id": user.get("price_id")}
 
 def generate_verification_code() -> str:
     code = ''.join(random.sample(string.digits, k=6))
@@ -459,9 +459,14 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
                 metadata={"linked_email": linked_email}
             )
 
+            session = event.data.object
+            line_items = session.line_items.data
+
+            # Get the priceId of the first item in the line_items array
+            price_id = line_items[0].price.id
             webapp_access_token = str(uuid.uuid4())
 
-            user = User(email=linked_email, subscription_id=subscription_id,webapp_token_id=webapp_access_token, is_subscribed = True)
+            user = User(email=linked_email, subscription_id=subscription_id, webapp_token_id=webapp_access_token, price_id = price_id, is_subscribed = True)
             #print(user)
             update_result = await user_collection.update_one(
                 {"email": linked_email},
