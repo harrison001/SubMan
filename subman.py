@@ -282,7 +282,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
         if mode == "payment":
             payment_method_types = ["alipay", "card"]
         elif mode == "subscription":
-            payment_method_types = ["card", "apple_pay", "google_pay"]
+            payment_method_types = ["card"]
 
         # 创建一个新的支付会话
         session = stripe.checkout.Session.create(
