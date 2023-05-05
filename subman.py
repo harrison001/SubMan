@@ -280,7 +280,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
 
         # 根据模式设置支付方式
         if mode == "payment":
-            payment_method_types = ["alipay", "card"]
+            payment_method_types = ["alipay", "card","wechat_pay"]
         elif mode == "subscription":
             payment_method_types = ["card"]
 
@@ -292,7 +292,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
                 "quantity": 1,
             }],
             mode=mode,  # 根据产品类型设置模式
-            success_url="https://mychatgpt.io/payment_succeeded.html",  # 替换为支付成功后的跳转 URL
+            success_url="https://mychatgpt.io/adgpt/index.html",  # 替换为支付成功后的跳转 URL
             cancel_url="https://mychatgpt.io/payment_failed.html",  # 替换为支付取消后的跳转 URL
             metadata={"linked_email": subscription_request.userEmail},  # 在 metadata 中添加 email
             customer_email=subscription_request.userEmail  # 自动填写用户邮箱
