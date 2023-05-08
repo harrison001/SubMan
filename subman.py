@@ -124,7 +124,7 @@ async def update_subscriptions_status(db: AsyncIOMotorDatabase = Depends(get_dat
 
 
 # 接口: 根据邮箱查询webapp_token_id并调用发送确认邮件函数
-@app.get("/webapp-token")
+@app.get("/resend-webapp-token")
 async def get_webapp_token(email: EmailStr, db: AsyncIOMotorDatabase = Depends(get_database)):
     user = await db.users.find_one({"email": email})
     #print(user)
@@ -299,7 +299,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
                 "quantity": 1,
             }],
             mode=mode,  # 根据产品类型设置模式
-            success_url="https://mychatgpt.io/adgpt/index.html",  # 替换为支付成功后的跳转 URL
+            success_url="https://mychatgpt.io/adgpt/index.html?show_dialog=true",  # 替换为支付成功后的跳转 URL
             cancel_url="https://mychatgpt.io/payment_failed.html",  # 替换为支付取消后的跳转 URL
             metadata={"linked_email": subscription_request.userEmail},  # 在 metadata 中添加 email
             customer_email=subscription_request.userEmail  # 自动填写用户邮箱
