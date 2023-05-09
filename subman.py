@@ -323,7 +323,7 @@ def get_price_id(membership_type):
         return "price_1N4C55CGuAz36NVRy1YiDMMK"
     elif membership_type == "钻石卡":
         return "price_1N4C5CCGuAz36NVRsklsrsMp"
-    elif membership_type == "次卡会员":
+    elif membership_type == "充值包":
         return "price_1N4C1qCGuAz36NVRVrFC0mho"
     '''
     #test 
@@ -335,14 +335,14 @@ def get_price_id(membership_type):
         return "price_1N4JJiCGuAz36NVRxVQJjdro"
     elif membership_type == "钻石卡":
         return "price_1N4JKkCGuAz36NVRIxFfO86n"
-    elif membership_type == "次卡会员":
+    elif membership_type == "充值包":
         return "price_1N4JKYCGuAz36NVRc0TTW4j9"
     # ...
 
 def get_mode(membership_type):
     # 这个函数应该根据会员类型返回对应的支付模式
     # 这里只是一个例子，你需要根据你的实际情况修改
-    if membership_type == "次卡会员":
+    if membership_type == "充值包":
         return "payment"
     else:
         return "subscription"
