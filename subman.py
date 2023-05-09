@@ -148,7 +148,7 @@ async def validate_token(token: Token):
 
     # 根据会员价格返回会员类型
     membership_map = {
-        8: "次卡会员",
+        8: "充值包",
         10: "普通月卡",
         25: "黄金卡",
         50: "白金卡",
