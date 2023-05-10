@@ -462,7 +462,10 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         if event.type == "checkout.session.completed":
             subscription_status = event.data.object["status"]
             custom_fields = event.data.object["custom_fields"]
-            subscription_id = event.data.object["subscription"]
+            subscription_id = event.data.object.get("subscription", None)
+
+            if subscription_id is None：
+                subscription_id = event.data.object["id"]
 
             for field in custom_fields:
                 if field.get("key") == "linkedemailvalidemailneededforchatbots":
