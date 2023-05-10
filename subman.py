@@ -163,11 +163,11 @@ def generate_verification_code() -> str:
 #once customer pays, the activation email need to be sent to remind them to active the bot accordingly. the page need to be designed.
 async def send_confirmation_email(user_email: str, subscription_id: str, webapp_token_id: str = ""):
     
-    emailContent = "<strong>Your email address has been verified,web token:" + webapp_token_id + ",please active your bot by Verification code via this email</strong>"
+    emailContent = "<strong>您的电子邮件地址已通过验证，网页令牌： " + webapp_token_id + "，请使用此电子邮件中的验证码激活您的机器人。</strong><br><br><strong>Your email address has been verified, web token: " + webapp_token_id + ", please activate your bot using the verification code provided in this email.</strong>"
     message = Mail(
         from_email='noreply@mychatgpt.io',
         to_emails=user_email,
-        subject='Email Verification',
+        subject = '电子邮件验证 / Email Verification',
         html_content=emailContent)
     try:
         response = await asyncio.to_thread(sendgrid_client.send, message)
@@ -314,17 +314,16 @@ async def subscribe(subscription_request: SubscriptionRequest):
 def get_price_id(membership_type):
     # 这个函数应该根据会员类型返回对应的价格ID
     # 这里只是一个例子，你需要根据你的实际情况修改
-    '''
     if membership_type == "普通月卡":
-        return "price_1N4CCrCGuAz36NVRinJREU1d"
+        return "price_1N69aMCGuAz36NVRUBiCsvRF"
     elif membership_type == "黄金卡":
-        return "price_1N4C4vCGuAz36NVRTfGjO1DA"
+        return "price_1N69ajCGuAz36NVRRicbexSu"
     elif membership_type == "白金卡":
-        return "price_1N4C55CGuAz36NVRy1YiDMMK"
+        return "price_1N69bXCGuAz36NVR1USHSIRd"
     elif membership_type == "钻石卡":
-        return "price_1N4C5CCGuAz36NVRsklsrsMp"
+        return "price_1N69bhCGuAz36NVRNLaTNlFQ"
     elif membership_type == "充值包":
-        return "price_1N4C1qCGuAz36NVRVrFC0mho"
+        return "price_1N69cACGuAz36NVRhYPB1aNM"
     '''
     #test 
     if membership_type == "普通月卡":
@@ -337,6 +336,7 @@ def get_price_id(membership_type):
         return "price_1N4JKkCGuAz36NVRIxFfO86n"
     elif membership_type == "充值包":
         return "price_1N4JKYCGuAz36NVRc0TTW4j9"
+    '''
     # ...
 
 def get_mode(membership_type):
