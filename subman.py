@@ -436,11 +436,19 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
         if event.type == "checkout.session.completed":
             linked_email = event.data.object["metadata"]["linked_email"]
+            customer_id = event.data.object.get("customer", None)
+
+            if not customer_id:
+                # Create a new customer if customer_id is None
+                customer = stripe.Customer.create(
+                    email=event.data.object["customer_email"],
+                    metadata={"linked_email": linked_email}
+                )
+                customer_id = customer.id
         else:
             customer_id = event.data.object["customer"]
             customer = stripe.Customer.retrieve(customer_id)
             linked_email = customer.metadata.get("linked_email", "")
-
 
         user_email = event.data.object.get("customer_email", "")
 
