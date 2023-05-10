@@ -300,7 +300,7 @@ async def subscribe(subscription_request: SubscriptionRequest):
             }],
             mode=mode,  # 根据产品类型设置模式
             success_url="https://mychatgpt.io/adgpt/index.html?show_dialog=true",  # 替换为支付成功后的跳转 URL
-            cancel_url="https://mychatgpt.io/payment_failed.html",  # 替换为支付取消后的跳转 URL
+            cancel_url="https://mychatgpt.io/adgpt/membership-compose-cn.html",  # 替换为支付取消后的跳转 URL
             metadata={"linked_email": subscription_request.userEmail},  # 在 metadata 中添加 email
             customer_email=subscription_request.userEmail  # 自动填写用户邮箱
         )
@@ -433,13 +433,18 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             return {"message": "Event type not supported"}
         user_collection = db["users"]
         subscription_collection = db["subscriptions"]
-        customer_id = event.data.object["customer"]
-        customer = stripe.Customer.retrieve(customer_id)
-        user_email = customer.email
 
-        if customer.metadata:
-            linked_email = customer.metadata.get("linked_email", "")
+        if event.type == "checkout.session.completed":
+            linked_email = event.data.object["metadata"]["linked_email"]
         else:
+            customer_id = event.data.object["customer"]
+            customer = stripe.Customer.retrieve(customer_id)
+            linked_email = customer.metadata.get("linked_email", "")
+
+
+        user_email = event.data.object.get("customer_email", "")
+
+        if not linked_email:
             linked_email = user_email
 
         logger.info(f"event.type: {event.type}")
