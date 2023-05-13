@@ -162,8 +162,61 @@ def generate_verification_code() -> str:
 
 #once customer pays, the activation email need to be sent to remind them to active the bot accordingly. the page need to be designed.
 async def send_confirmation_email(user_email: str, subscription_id: str, webapp_token_id: str = ""):
-    
-    emailContent = "<strong>您的电子邮件地址已通过验证，网页令牌： " + webapp_token_id + "，请使用此电子邮件中的验证码激活您的机器人。</strong><br><br><strong>Your email address has been verified, web token: " + webapp_token_id + ", please activate your bot using the verification code provided in this email.</strong>"
+    emailContent = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>电子邮件验证 / Email Verification</title>
+        <style>
+            .copy-button {{
+                display: inline-block;
+                padding: 10px 15px;
+                background-color: #4CAF50;
+                color: white;
+                cursor: pointer;
+                text-decoration: none;
+                border: none;
+                border-radius: 5px;
+            }}
+            .login-link {{
+                display: inline-block;
+                padding: 10px 15px;
+                background-color: #4285F4;
+                color: white;
+                text-decoration: none;
+                border: none;
+                border-radius: 5px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>电子邮件验证 / Email Verification</h1>
+        <p>您的电子邮件地址已通过验证，网页令牌： <strong id="token">{webapp_token_id}</strong>，请使用此电子邮件中的验证码激活您的机器人。</p>
+        <p>Your email address has been verified, web token: <strong id="token">{webapp_token_id}</strong>, please activate your bot using the verification code provided in this email.</p>
+        <button id="copy-button" class="copy-button">复制令牌 / Copy Token</button>
+        <p>复制令牌后，请点击下面的链接登录：</p>
+        <p>After copying the token, please click the link below to login:</p>
+        <a href="https://mychatgpt.io/adgpt/index.html?show_dialog=true" class="login-link">登录 / Login</a>
+
+        <script>
+            document.getElementById("copy-button").addEventListener("click", function() {{
+                const token = document.getElementById("token").textContent;
+                const textarea = document.createElement("textarea");
+                textarea.value = token;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textarea);
+
+                // 显示一个提示，确认已复制token
+                alert("令牌已复制到剪贴板 / Token copied to clipboard!");
+            }});
+        </script>
+    </body>
+    </html>
+    """
     message = Mail(
         from_email='noreply@mychatgpt.io',
         to_emails=user_email,
