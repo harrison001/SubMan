@@ -189,8 +189,8 @@ async def send_confirmation_email(user_email: str, subscription_id: str, webapp_
         <h1>电子邮件验证 / Email Verification</h1>
         <p>您的电子邮件地址已通过验证，网页令牌： <strong id="token">{webapp_token_id}</strong>，请使用此电子邮件中的令牌来登录您的web端。</p>
         <p>Your email address has been verified, web token: <strong id="token">{webapp_token_id}</strong>, please use the token to login the webapp below .</p>
-        <p>复制令牌后，请点击下面的链接登录：</p>
-        <p>After copying the token, please click the link below to login:</p>
+        <p>复制令牌后，请点击下面的链接登录：如果点击登录没有反应，可能是您的邮件供应商存在限制，您可以复制下面网址，输入浏览器进行访问：https://mychatgpt.io/adgpt/index.html?show_dialog=true</p>
+        <p>After copying the token, please click the link below to login: If you find no response when clicking 'login', it might be due to restrictions from your email provider. You can copy the following URL and paste it into your browser for access: https://mychatgpt.io/adgpt/index.html?show_dialog=true</p>
         <a href="https://mychatgpt.io/adgpt/index.html?show_dialog=true" class="login-link">登录 / Login</a>
     </body>
     </html>
