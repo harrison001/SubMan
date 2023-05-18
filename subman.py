@@ -308,6 +308,7 @@ async def update_user_info(user_input: UserInput):
 class SubscriptionRequest(BaseModel):
     userEmail: str
     membershipType: str
+    channelID: str
 
 @app.post("/subscribe")
 async def subscribe(subscription_request: SubscriptionRequest):
@@ -332,7 +333,10 @@ async def subscribe(subscription_request: SubscriptionRequest):
             mode=mode,  # 根据产品类型设置模式
             success_url="https://mychatgpt.io/adgpt/index.html?show_dialog=true",  # 替换为支付成功后的跳转 URL
             cancel_url="https://mychatgpt.io/adgpt/membership-compose-cn.html",  # 替换为支付取消后的跳转 URL
-            metadata={"linked_email": subscription_request.userEmail},  # 在 metadata 中添加 email
+            metadata={
+                "linked_email": subscription_request.userEmail,  # 在 metadata 中添加 email
+                "channel_id": subscription_request.channelID  # 在 metadata 中添加 channelID
+            },
             customer_email=subscription_request.userEmail  # 自动填写用户邮箱
         )
 
