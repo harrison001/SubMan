@@ -470,14 +470,15 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         subscription_collection = db["subscriptions"]
 
         if event.type == "checkout.session.completed":
-            linked_email = event.data.object["metadata"]["linked_email"]
+            linked_email = event.data.object["metadata"].get("linked_email", "")
+            channel_id = event.data.object["metadata"].get("channel_id", "Organic")
             customer_id = event.data.object.get("customer", None)
 
             if not customer_id:
                 # Create a new customer if customer_id is None
                 customer = stripe.Customer.create(
                     email=event.data.object["customer_email"],
-                    metadata={"linked_email": linked_email}
+                    metadata={"linked_email": linked_email,"channel_id":channel_id}
                 )
                 customer_id = customer.id
         else:
@@ -492,7 +493,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 
         logger.info(f"event.type: {event.type}")
         logger.info(f"user_email: {user_email}")
-        logger.info(f"linked_email: {linked_email}")
+        logger.info(f"linked_email: {linked_email},channel_id:{channel_id}")
 
         if event.type == "checkout.session.completed":
             subscription_status = event.data.object["status"]
