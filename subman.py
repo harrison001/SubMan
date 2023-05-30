@@ -469,6 +469,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         user_collection = db["users"]
         subscription_collection = db["subscriptions"]
 
+        channel_id = "Organic"
         if event.type == "checkout.session.completed":
             linked_email = event.data.object["metadata"].get("linked_email", "")
             channel_id = event.data.object["metadata"].get("channel_id", "Organic")
