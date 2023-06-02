@@ -146,14 +146,6 @@ async def validate_token(token: Token):
     if not user:
         return {"isSuccessful":False,"msg":"Token not found"}
 
-    # 根据会员价格返回会员类型
-    membership_map = {
-        8: "充值包",
-        10: "普通月卡",
-        25: "黄金卡",
-        50: "白金卡",
-        100: "钻石卡",
-    }
     return {"isSuccessful":True,"price_id": user.get("price_id")}
 
 def generate_verification_code() -> str:
@@ -350,13 +342,13 @@ def get_price_id(membership_type):
     # 这个函数应该根据会员类型返回对应的价格ID
     # 这里只是一个例子，你需要根据你的实际情况修改
     if membership_type == "普通月卡":
-        return "price_1N69aMCGuAz36NVRUBiCsvRF"
-    elif membership_type == "黄金卡":
-        return "price_1N69ajCGuAz36NVRRicbexSu"
-    elif membership_type == "白金卡":
+        return "price_1NES4gCGuAz36NVRn6Fk0k2Z"
+    elif membership_type == "黄金月卡":
         return "price_1N69bXCGuAz36NVR1USHSIRd"
+    elif membership_type == "白金卡":
+        return "price_1NES5iCGuAz36NVRxDebO0zJ"
     elif membership_type == "钻石卡":
-        return "price_1N69bhCGuAz36NVRNLaTNlFQ"
+        return "price_1NES62CGuAz36NVRHiohiHLY"
     elif membership_type == "充值包":
         return "price_1N69cACGuAz36NVRhYPB1aNM"
     '''
@@ -377,7 +369,7 @@ def get_price_id(membership_type):
 def get_mode(membership_type):
     # 这个函数应该根据会员类型返回对应的支付模式
     # 这里只是一个例子，你需要根据你的实际情况修改
-    if membership_type == "充值包":
+    if membership_type == "充值包" or membership_type == "白金卡" or membership_type == "钻石卡":
         return "payment"
     else:
         return "subscription"
