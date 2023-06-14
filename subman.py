@@ -33,7 +33,8 @@ MONGODB_CONNECTION_STRING = os.environ.get('MONGODB_CONNECTION_STRING')
 MONGODB_DB_NAME = os.environ.get('MONGODB_DB_NAME')
 WEBHOOK_URL = os.environ.get('WEBHOOK_URL')
 
-logging.basicConfig(level=logging.INFO)
+
+logging.basicConfig(filename='subman.log', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -668,7 +669,8 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         raise HTTPException(status_code=500, detail="SendGrid API error")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error")
+        return {"message": "Webhook received"}
+        #raise HTTPException(status_code=500, detail="Unexpected error")
 
 if __name__ == "__main__":
     import uvicorn
