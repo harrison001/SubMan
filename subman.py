@@ -613,6 +613,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             await user_collection.update_one({"email": linked_email}, {"$set": {"is_subscribed": False}})
 
         elif event.type == "invoice.payment_succeeded":
+            return {"message": "Webhook received"}
             subscription_id = event.data.object["subscription"]
             invoice = event.data.object
             user = await user_collection.find_one({"email": linked_email})
@@ -669,8 +670,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         raise HTTPException(status_code=500, detail="SendGrid API error")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        return {"message": "Webhook received"}
-        #raise HTTPException(status_code=500, detail="Unexpected error")
+        raise HTTPException(status_code=500, detail="Unexpected error")
 
 if __name__ == "__main__":
     import uvicorn
