@@ -440,6 +440,7 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
 
 @app.post("/stripe_webhook")
 async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_database)):
+    return {"message": "Webhook received"}
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
@@ -613,7 +614,6 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
             await user_collection.update_one({"email": linked_email}, {"$set": {"is_subscribed": False}})
 
         elif event.type == "invoice.payment_succeeded":
-            return {"message": "Webhook received"}
             subscription_id = event.data.object["subscription"]
             invoice = event.data.object
             user = await user_collection.find_one({"email": linked_email})
