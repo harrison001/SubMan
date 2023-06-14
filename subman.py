@@ -440,7 +440,6 @@ async def verify_email(email: str, code: str, platform_id: str, platform: str, d
 
 @app.post("/stripe_webhook")
 async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_database)):
-    return {"message": "Webhook received"}
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
 
@@ -670,7 +669,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
         raise HTTPException(status_code=500, detail="SendGrid API error")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="Unexpected error")
+        raise HTTPException(status_code=500, detail="Unexpected error,please try again later")
 
 if __name__ == "__main__":
     import uvicorn
