@@ -52,5 +52,18 @@ content = """
 </html>
 """
 print(SENDGRID_API_KEY)
+#guohongmin2010@sina.com
+#continum@qq.com
+#zhangrui824@gmail.com
+#409681682@qq.com
+#tohzf@126.com
+#dawn@qq.com
+#1160728484@qq.com
+#jikuansun@163.com
+#lily.jiao1981@gmail.com
+#timezz356@163.com
+#zhuxi136045210@gmail.com
+
+
 # 发送邮件
 #send_email("support@mychatgpt.io", "zhangrui824@gmail.com", "We have received your technical support request", content)
